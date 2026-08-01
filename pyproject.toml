@@ -1,0 +1,28 @@
+[project]
+name = "bot-job"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram~=3.30.0",
+    "aiosqlite>=0.22.1",
+    "alembic>=1.19.1",
+    "apscheduler>=3.11.3",
+    "colorama ~= 0.4.6",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "requests>=2.34.2",
+    "rich ~= 15.0.0",
+    "sqlalchemy>=2.0.52",
+    "structlog ~= 26.1.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+
+[tool.ruff]
+# Указываем, какие правила игнорировать во всем проекте
+lint.ignore = ["C401", "BLE001", "E722", "S110", "F841", "TRY002"]

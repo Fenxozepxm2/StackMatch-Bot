@@ -1,0 +1,16 @@
+[bot]
+token = "your_telegram_bot_token_here"
+
+[database]
+url = "sqlite+aiosqlite:///./jobs.db"
+
+[parsers]
+hh_api_url = "https://api.hh.ru/vacancies"
+update_interval_min = 60
+
+[i18n]
+default_lang = "ru"
+
+[access_bot_token]
+access_token = ****
+
