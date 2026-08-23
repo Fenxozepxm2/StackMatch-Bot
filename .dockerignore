@@ -1,0 +1,35 @@
+# Папки виртуальных окружений (Самое главное!)
+botjob/
+.venv/
+.uv/
+
+# Кэш интерпретатора, тестов и линтера
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.pytest_cache
+
+# Файлы локальных баз данных (чтобы они не вшивались в образ)
+*.db
+*.db-journal
+*.sqlite3
+
+# Конфиденциальные файлы
+settings.toml
+.env
+
+# Мусор среды разработки VS Code
+.vscode/
+
+
+keysvacansies.py
+test2.py
+testurl.py
+jobs_backup.db
+
+
+build/
+dist/
+*.egg-info/
