@@ -23,7 +23,7 @@ async def test_get_vacancies():
 
             print("2. Отправляем тестовый запрос в API hh.ru (в обход Happ)...")
             response = await HHAPI.search_vacancies(
-                params, config.access_token.access_token, session=session, tg_id=tg_id
+                params, config.access_token.access_token, session=session,http_session=session ,tg_id=tg_id
             )
 
             assert response, "Ответ от API пустой"

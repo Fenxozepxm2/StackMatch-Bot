@@ -22,9 +22,13 @@ router = Router(name="vacancies_history")
 
 @router.message(Command("history"))
 async def show_all_history_messages(
-    message: Message, session: AsyncSession, tg_id: int
+    message: Message, session: AsyncSession, tg_id: int = None
 ):
     try:
+
+        if tg_id is None:
+            tg_id = message.from_user.id
+
         # 1. Получаем список лайкнутых вакансий из базы
         favorites = await get_favorite_vac(session, tg_id=tg_id)
 

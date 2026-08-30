@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import aiohttp
 import requests
 import structlog
 from aiogram import F, Router
@@ -75,7 +76,6 @@ async def start(message: Message, session: AsyncSession) -> None:
         name=message.from_user.first_name,
     )
 
-    await CityMapper.load_cities()
 
 
 @router.message(Command("test"))
@@ -95,7 +95,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Мост для кнопки "Найти вакансии"
 @router.callback_query(F.data == "start_search_vacancies")
 async def callback_start_search(
-    callback: CallbackQuery, session: AsyncSession, state: FSMContext
+    callback: CallbackQuery, session: AsyncSession, state: FSMContext, http_session: aiohttp.ClientSession
 ):
     await callback.answer()
     await finder(
@@ -103,6 +103,7 @@ async def callback_start_search(
         session=session,
         state=state,
         tg_id=callback.from_user.id,
+        http_session=http_session
     )
 
 

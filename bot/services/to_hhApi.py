@@ -20,18 +20,10 @@ EXPERIENCE_MAP = {
 
 # Маппинг для графика работы 
 SCHEDULE_MAP = {
-    "5/2": "fullDay",
-    "2/2": "shift",
-    "3/3": "shift",
-    "Свободный": "free",
-    "6/1": "fullDay",  # в API нет точного соответствия, берём fullDay как ближайшее
-    "4/2": "shift",
-    "3/2": "shift",
-    "4/3": "shift",
-    "4/4": "shift",
-    "1/3": "shift",
-    "2/1": "shift",
-    "1/2": "shift"
+    "Сменный": "shift",
+    "Удалённо": "remote",
+    "Гибкий": "flexible",  
+    "Полный день": "fullDay"
 }
 
 # Маппинг для формата работы 
@@ -314,7 +306,7 @@ class HHAPI:
 
 
     @staticmethod
-    async def full_vacanci_id(vac_id: int, access_token):
+    async def full_vacanci_id(vac_id: int, access_token, htpp_session: aiohttp.ClientSession):
 
 
         headers = {
@@ -324,9 +316,7 @@ class HHAPI:
 
         url = f"{HHAPI.BASE_URL}/vacancies/{vac_id}"
 
-        async with aiohttp.ClientSession(headers=headers, trust_env=False) as htpp_session:
-            await asyncio.sleep(1) 
-            async with htpp_session.get(url) as response:
+        async with htpp_session.get(url, headers=headers) as response:
                 if response.status == 200:
 
                     data = await response.json()
@@ -353,10 +343,11 @@ class HHAPI:
 
 
     @staticmethod
-    async def search_vacancies(params: dict[str, Any], access_token: str, session: AsyncSession, tg_id: int) -> dict[str, Any]:
+    async def search_vacancies(params: dict[str, Any], access_token: str, session: AsyncSession, http_session: aiohttp.ClientSession, tg_id: int) -> dict[str, Any]:
         url = f"{HHAPI.BASE_URL}/vacancies"
         
         current_params = params.copy()
+
         
         
         db_ids = await get_viewed_vacancy_ids(session, tg_id)
@@ -367,19 +358,19 @@ class HHAPI:
             "Authorization": f"Bearer {access_token}"
         }
 
-        async with aiohttp.ClientSession(headers=headers, trust_env=False) as http_session:
-            # Запускаем цикл: если вся страница оказалась просмотренной, автоматически запрашиваем следующую
-            for attempt in range(5):
-                flat_params = []
-                for key, value in current_params.items():
-                    if isinstance(value, list):
-                        for item in value:
-                            flat_params.append((key, item))
-                    else:
-                        flat_params.append((key, value))
+        
+        # Запускаем цикл: если вся страница оказалась просмотренной, автоматически запрашиваем следующую
+        for attempt in range(5):
+            flat_params = []
+                
+            for key, value in current_params.items():
+                if isinstance(value, list):
+                    for item in value:
+                        flat_params.append((key, item))
+                else:
+                    flat_params.append((key, value))
 
-                await asyncio.sleep(1) 
-                async with http_session.get(url, params=flat_params) as response:
+                async with http_session.get(url, params=flat_params, headers=headers) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")

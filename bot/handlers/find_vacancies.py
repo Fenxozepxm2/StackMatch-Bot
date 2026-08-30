@@ -1,5 +1,5 @@
 import traceback
-
+import aiohttp
 import structlog
 from aiogram import Router
 from aiogram.filters import Command
@@ -51,12 +51,12 @@ def get_vacancy_keyboard(id_vac: str) -> InlineKeyboardMarkup:
 
 @router.message(Command("finder"))
 async def finder(
-    message: Message, session: AsyncSession, state: FSMContext, tg_id: int | None = None
+    message: Message, session: AsyncSession, http_session: aiohttp.ClientSession ,state: FSMContext, tg_id: int | None = None
 ):
     try:
         params = await filters_to_params_hh_api(tg_id, session, page=0)
         response = await HHAPI.search_vacancies(
-            params, config.access_token.access_token, session, tg_id=tg_id
+            params, config.access_token.access_token, session, http_session=http_session, tg_id=tg_id
         )
 
         vacancies = response.get("items", [])
@@ -107,7 +107,7 @@ async def finder(
 
 @router.callback_query(VacancySearch.browsing)
 async def process_vacancy_action(
-    callback: CallbackQuery, state: FSMContext, session: AsyncSession
+    callback: CallbackQuery, state: FSMContext, session: AsyncSession, http_session: aiohttp.ClientSession
 ):
     user_data = await state.get_data()
     vacancies = user_data.get("vacancies", [])
@@ -119,10 +119,11 @@ async def process_vacancy_action(
 
     current_vac = vacancies[current_index]
 
+    # ОБРАБОТКА ЛАЙКА / СКИПА / ОТМЕНЫ
     if callback.data.startswith("like_"):
         vac_id = callback.data.split("_")[1]
         key_skills = await HHAPI.full_vacanci_id(
-            vac_id, config.access_token.access_token
+            vac_id, config.access_token.access_token, http_session
         )
         success = await add_vacancy_action(
             session,
@@ -131,7 +132,6 @@ async def process_vacancy_action(
             action="like",
             key_skills=key_skills,
         )
-
         if success:
             await callback.answer("Вакансия добавлена в избранное! ❤️")
         else:
@@ -140,7 +140,7 @@ async def process_vacancy_action(
     elif callback.data.startswith("skip_"):
         vac_id = callback.data.split("_")[1]
         key_skills = await HHAPI.full_vacanci_id(
-            vac_id, config.access_token.access_token
+            vac_id, config.access_token.access_token, http_session
         )
         success = await add_vacancy_action(
             session,
@@ -149,7 +149,6 @@ async def process_vacancy_action(
             action="skip",
             key_skills=key_skills,
         )
-
         if success:
             await callback.answer("Вакансия пропущена ❌")
         else:
@@ -157,21 +156,25 @@ async def process_vacancy_action(
 
     elif callback.data == "cancel_vacancy_menu":
         from bot.services.main_menu import send_main_menu
-
-        await callback.answer("Вы вернулись в главное menu")
+        await callback.answer("Вы вернулись в главное меню")
         await state.clear()
-        # TODO: Здесь вызвать функцию отправки главного меню
         await send_main_menu(event=callback, edit=True, session=session)
         return
+    
+    elif callback.data == "next_vacancy":
+        await callback.answer()
     else:
         await callback.answer()
+        return
 
-    # ПЕРЕХОД К СЛЕДУЮЩЕЙ ВАКАНСИИ
-    next_index = current_index + 1
     user = await get_user(session, callback.from_user.id)
 
+    await session.refresh(user, ["liked", "disliked"])
+
+    next_index = current_index + 1
+
     if next_index >= len(vacancies):
-        # СЛЕДУЮЩАЯ СТРАНИЦА API (ПАЧКА ЗАКОНЧИЛАСЬ)
+        # Если пачка закончилась, запрашиваем новую страницу из API hh.ru
         current_api_page = user_data.get("api_page", 0)
         next_api_page = current_api_page + 1
 
@@ -185,6 +188,7 @@ async def process_vacancy_action(
             params=params,
             access_token=config.access_token.access_token,
             session=session,
+            http_session=http_session,
             tg_id=callback.from_user.id,
         )
 
@@ -197,7 +201,7 @@ async def process_vacancy_action(
             await state.clear()
             return
 
-        # РАНЖИРУЕМ НОВУЮ ПАЧКУ ВАКАНСИЙ
+        # Ранжируем новую пачку первый раз
         for vac in new_vacancies:
             vac["calculated_score"] = await HHAPI.personalize_score_safe(
                 vac, user.skills or [], user.disliked or [], user.liked or []
@@ -210,9 +214,18 @@ async def process_vacancy_action(
             vacancies=vacancies, current_index=next_index, api_page=next_api_page
         )
     else:
+        # Если идем по текущей пачке, просто сохраняем новый индекс
         await state.update_data(current_index=next_index)
 
     next_item = vacancies[next_index]
+    
+    next_item["calculated_score"] = await HHAPI.personalize_score_safe(
+        next_item, user.skills or [], user.disliked or [], user.liked or []
+    )
+    
+    vacancies[next_index] = next_item
+    await state.update_data(vacancies=vacancies)
+
     item_score = next_item.get("calculated_score", 0)
 
     vac_data = await HHAPI.format_vacancies(next_item, score=item_score)
@@ -232,8 +245,9 @@ async def process_vacancy_action(
         await callback.message.answer("❌ Произошла ошибка при обновлении вакансии.")
 
 
+
 @router.message(Command("get_vacancies"))
-async def get_vacancies(message: Message, session: AsyncSession):
+async def get_vacancies(message: Message, session: AsyncSession, http_session: aiohttp.ClientSession):
 
     try:
         # 1. Получаем сформированные параметры
@@ -241,7 +255,7 @@ async def get_vacancies(message: Message, session: AsyncSession):
 
         # 2. Делаем запрос к HH
         response = await HHAPI.search_vacancies(
-            params, config.access_token.access_token
+            params, config.access_token.access_token, http_session=http_session
         )
 
         # 3. Вытаскиваем список вакансий из ответа

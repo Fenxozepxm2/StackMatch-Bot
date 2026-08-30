@@ -43,7 +43,7 @@ async def check_vacancies(bot: Bot) -> list:
                 params = await filters_to_params_hh_api(tg_id, bot_session)
 
                 raw_data = await HHAPI.search_vacancies(
-                    params, config.access_token.access_token, bot_session, tg_id
+                    params, config.access_token.access_token, bot_session, tg_id, http_session=bot_session
                 )
 
                 vacs = raw_data.get("items", [])

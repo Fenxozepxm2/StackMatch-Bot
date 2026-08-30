@@ -140,9 +140,15 @@ async def close_and_save_filters(
 
 @router.message(Command("show_filters"))
 async def show_filters(
-    message: Message, state: FSMContext, session: AsyncSession, tg_id: int
+    message: Message, state: FSMContext, session: AsyncSession, tg_id: int = None
 ):
 
+    if tg_id is None:
+        tg_id = message.from_user.id
+
+
+    
+    
     # Получаем словарь с фильтрами (если нет — пустой)
     filters_dict = await get_user_filters(session, tg_id)
 

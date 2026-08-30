@@ -15,7 +15,7 @@ dependencies = [
     "requests>=2.34.2",
     "rich ~= 15.0.0",
     "sqlalchemy>=2.0.52",
-    "structlog ~= 26.1.0",
+    "structlog~=26.1.0",
 ]
 
 [tool.pytest.ini_options]
