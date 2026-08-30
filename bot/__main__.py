@@ -70,10 +70,10 @@ async def main():
         scheduler = AsyncIOScheduler()
 
         scheduler.add_job(
-            check_vacancies, trigger="cron", hour=10, minute=0, kwargs={"bot": bot}
+            check_vacancies, trigger="cron", hour=10, minute=0, kwargs={"bot": bot, "http_session": http_session}
         )
         # scheduler.add_job(
-        #     check_vacancies, trigger="interval", minutes=1, kwargs={"bot": bot}
+        #     check_vacancies, trigger="interval", minutes=1, kwargs={"bot": bot, "http_session": http_session}
         # )
 
         scheduler.start()

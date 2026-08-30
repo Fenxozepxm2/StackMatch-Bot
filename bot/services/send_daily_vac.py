@@ -7,10 +7,12 @@ from aiogram.types import (
     InlineKeyboardMarkup,
 )
 
+
+import aiohttp
 from bot.config import load_config
 from bot.db.database import Async_Fabric_Session
 from bot.db.repos.repo_filters import get_user_filters
-from bot.db.repos.repo_user import get_user, get_users
+from bot.db.repos.repo_user import get_user, get_all_user_ids
 from bot.db.repos.rpeo_notifications import add_top5_vaca_in_notification
 from bot.services.to_hhApi import HHAPI, filters_to_params_hh_api
 
@@ -20,18 +22,17 @@ logger = structlog.get_logger(__name__)
 config = load_config()
 
 
-async def check_vacancies(bot: Bot) -> list:
+async def check_vacancies(bot: Bot, http_session: aiohttp.ClientSession) -> list:
     """
     проверяет из новых вакансий самые лучшие топ-5 и отправляет пользователю
     каждые 24 часа
     """
 
     async with Async_Fabric_Session() as bot_session:
-        users = await get_users(bot_session)
+        users_ids = await get_all_user_ids(bot_session)
 
-        for user in users:
+        for tg_id in users_ids:
             try:
-                tg_id = user.tg_id
 
                 user = await get_user(bot_session, tg_id)
 
@@ -42,9 +43,7 @@ async def check_vacancies(bot: Bot) -> list:
 
                 params = await filters_to_params_hh_api(tg_id, bot_session)
 
-                raw_data = await HHAPI.search_vacancies(
-                    params, config.access_token.access_token, bot_session, tg_id, http_session=bot_session
-                )
+                raw_data = await HHAPI.search_vacancies(params, config.access_token.access_token, session=bot_session, http_session=http_session, tg_id=tg_id)
 
                 vacs = raw_data.get("items", [])
 

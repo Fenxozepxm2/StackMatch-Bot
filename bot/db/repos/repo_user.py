@@ -56,3 +56,9 @@ async def get_users(session: AsyncSession) -> User:
         raise ValueError()
 
     return users
+
+
+async def get_all_user_ids(session: AsyncSession) -> list[int]:
+    """Возвращает чистый список telegram_id всех пользователей базы."""
+    result = await session.execute(select(User.tg_id))
+    return list(result.scalars().all())

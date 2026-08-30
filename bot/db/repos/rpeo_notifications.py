@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +45,7 @@ async def add_top5_vaca_in_notification(
                 tg_id=tg_id,
                 vacancy_id=str(vaca.get("id")),
                 vacancy_data=vaca,
-                sent_at=datetime.now(tz="UTC"),
+                sent_at=datetime.now(timezone.utc),
             )
             session.add(new_viewed_vacancy)
             await session.commit()
