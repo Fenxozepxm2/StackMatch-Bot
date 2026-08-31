@@ -1,4 +1,3 @@
-# bot/handlers/filter_widgets/schedule.py
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
@@ -10,18 +9,11 @@ from bot.states.filter_states import FilterForm
 schedule_router = Router(name="schedule_widget")
 
 SCHEDULE_OPTIONS = [
-    "5/2",
-    "2/2",
-    "3/3",
-    "Свободный",
-    "6/1",
-    "4/2",
-    "3/2",
-    "4/3",
-    "4/4",
-    "1/3",
-    "2/1",
-    "1/2",
+    "Сменный",
+    "Удалённо",
+    "Гибкий",  
+    "Полный день",
+    "Вахта"
 ]
 
 

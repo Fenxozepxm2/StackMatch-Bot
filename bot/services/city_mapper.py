@@ -22,7 +22,6 @@ class CityMapper:
     async def load_cities(cls, http_session: aiohttp.ClientSession):
         """Загружает справочник городов с hh.ru через общую сессию."""
         url = "https://api.hh.ru/areas"
-        # Переиспользуем переданный http_session без лишних async with
         async with http_session.get(url, ssl=False) as resp:
             data = await resp.json()
             cls._city_map.clear()
@@ -32,13 +31,28 @@ class CityMapper:
     @classmethod
     def _recursive_parse(cls, areas):
         for area in areas:
-            if area.get("areas"):
-                cls._recursive_parse(area["areas"])
+            sub_areas = area.get("areas", [])
             
+            # Названия городов/регионов для сохранения
             name = area["name"]
             city_id = area["id"]
-            cls._city_map[name.lower()] = name
-            cls._city_id_map[name.lower()] = city_id
+
+            if sub_areas:
+                # Если есть подкатегории, сначала рекурсивно парсим их
+                cls._recursive_parse(sub_areas)
+                
+                # ИСКЛЮЧЕНИЕ ДЛЯ КРУПНЫХ ГОРОДОВ:
+                # В HH API Москва (id: 1) и Санкт-Петербург (id: 2) находятся на уровне областей
+                # и содержат внутри себя районы/метро. Их нужно сохранить как города.
+                if city_id in ["1", "2"]:
+                    cls._city_map[name.lower()] = name
+                    cls._city_id_map[name.lower()] = int(city_id)  # Сохраняем как int для надежности
+            else:
+                # Это конечный населенный пункт (город/поселок)
+                cls._city_map[name.lower()] = name
+                cls._city_id_map[name.lower()] = int(city_id)  # Сохраняем как int
+
+
 
     @classmethod
     def search_cities(cls, query: str, limit: int = 10) -> list[str]:

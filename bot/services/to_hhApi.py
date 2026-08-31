@@ -23,7 +23,8 @@ SCHEDULE_MAP = {
     "Сменный": "shift",
     "Удалённо": "remote",
     "Гибкий": "flexible",  
-    "Полный день": "fullDay"
+    "Полный день": "fullDay",
+    "Вахта": "flyInFlyOut"
 }
 
 # Маппинг для формата работы 
@@ -55,7 +56,7 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
     if city:
         city_id = CityMapper.get_city_id(city)
         if city_id:
-            params["area"] = city_id
+            params["area"] = int(city_id)
 
 
     # ЗАРПЛАТА (salary)
@@ -114,9 +115,9 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
     # ТУТ КОРОЧЕ СДЕЛАТЬ ОБРАБОТКУ ИСКЛЮЧАЮЩИЙ СЛОВ, ПОКА ЧТО ВПАДЛУ
 
 
-    params["order_by"] = "publication_time"
+    # params["order_by"] = "publication_time"
 
-    params["per_page"] = 50  # Берём оптимальный размер пачки (максимум у HH — 100)
+    params["per_page"] = 100  # Берём оптимальный размер пачки (максимум у HH — 100)
     params["page"] = page    # Теперь страница динамическая
 
     # Очищаем от пустых значений
@@ -348,8 +349,6 @@ class HHAPI:
         
         current_params = params.copy()
 
-        
-        
         db_ids = await get_viewed_vacancy_ids(session, tg_id)
         viewed_vac_ids = set(str(vid) for vid in db_ids)
 
@@ -358,11 +357,10 @@ class HHAPI:
             "Authorization": f"Bearer {access_token}"
         }
 
-        
-        # Запускаем цикл: если вся страница оказалась просмотренной, автоматически запрашиваем следующую
         for attempt in range(5):
             flat_params = []
                 
+            # 1. СНАЧАЛА ПОЛНОСТЬЮ СОБИРАЕМ ВСЕ ПАРАМЕТРЫ ИЗ СЛОВАРЯ
             for key, value in current_params.items():
                 if isinstance(value, list):
                     for item in value:
@@ -370,39 +368,34 @@ class HHAPI:
                 else:
                     flat_params.append((key, value))
 
-                async with http_session.get(url, params=flat_params, headers=headers) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")
+            # 2. И ТОЛЬКО КОГДА flat_params ПОЛНОСТЬЮ ГОТОВ — ДЕЛАЕМ ЗАПРОС (ВНЕ ЦИКЛА FOR!)
+            async with http_session.get(url, params=flat_params, headers=headers) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")
 
-                    data = await response.json()
-                    raw_vacan = data.get("items", [])
+                data = await response.json()
+                raw_vacan = data.get("items", [])
 
-                    if not raw_vacan:
-                        return data
+                if not raw_vacan:
+                    return data
 
-                    filtered_vacan = [
-                        vac for vac in raw_vacan
-                        if str(vac.get("id")) not in viewed_vac_ids   
-                    ]
+                # Фильтруем от того, что юзер уже лайкнул/скипнул ранее
+                filtered_vacan = [
+                    vac for vac in raw_vacan
+                    if str(vac.get("id")) not in viewed_vac_ids   
+                ]
 
-                    if filtered_vacan:
-                        data["items"] = filtered_vacan
-                        return data
-                    
-                    print(f" На page={current_params.get('page', 0)} всё просмотрено. Листаем дальше...")
-                    current_params["page"] = current_params.get("page", 0) + 1
+                # Если на этой странице есть хотя бы одна новая вакансия — отдаем её
+                if filtered_vacan:
+                    data["items"] = filtered_vacan
+                    return data
+                
+                current_params["page"] = current_params.get("page", 0) + 1
 
-
-            if not data["items"]:
-                data["items"] = []
-
-
-
-            print(data[:1])
-
-            
-            return data
+        # Если за 5 страниц вообще ничего нового не нашли
+        data["items"] = []
+        return data
 
 
     @staticmethod

@@ -1,5 +1,6 @@
 import traceback
 import aiohttp
+from bot.services.city_mapper import CityMapper
 import structlog
 from aiogram import Router
 from aiogram.filters import Command
@@ -59,17 +60,41 @@ async def finder(
             params, config.access_token.access_token, session, http_session=http_session, tg_id=tg_id
         )
 
-        vacancies = response.get("items", [])
-
-        if not tg_id:
-            tg_id = message.from_user.id
+        raw_vacancies = response.get("items", [])
 
         user = await get_user(session, tg_id)
         await message.answer(f"ты {user.name}")
 
-        if not vacancies:
-            await message.answer("По вашим фильтрам ничего не найдено. 🔍")
-            return
+        target_city = None
+        
+        state_data = await state.get_data()
+        if state_data.get("filters", {}).get("city"):
+            target_city = state_data["filters"]["city"]
+
+        if not target_city:
+            user_attrs = user.__dict__
+            
+            if "filter" in user_attrs and user_attrs["filter"]:
+                target_city = getattr(user_attrs["filter"], "city", None)
+            elif "filters" in user_attrs and user_attrs["filters"]:
+                target_city = getattr(user_attrs["filters"], "city", None)
+                
+        if not target_city:
+            target_city = "Новосибирск" 
+
+        vacancies = []
+
+        # Фильтруем список
+        for vac in raw_vacancies:
+            vac_city = vac.get("area", {}).get("name", "")
+            if str(target_city).lower() in str(vac_city).lower():
+                vacancies.append(vac)
+
+        logger.info(
+            f"ищет город {target_city}| Найдено после фильтра: {len(vacancies)} из {len(raw_vacancies)}",
+            Command="/finder"
+        )
+
 
         for vac in vacancies:
             vac["calculated_score"] = await HHAPI.personalize_score_safe(
@@ -78,6 +103,11 @@ async def finder(
 
         # Сортируем список по ключу "calculated_score"
         vacancies.sort(key=lambda x: x.get("calculated_score", 0), reverse=True)
+
+        if not vacancies:
+            await message.answer("По вашим фильтрам ничего не найдено в этом городе. 🔍")
+            await state.clear()
+            return
 
         await state.update_data(vacancies=vacancies, current_index=0)
         await state.set_state(VacancySearch.browsing)

@@ -1,3 +1,4 @@
+from bot.services.main_menu import send_main_menu
 import structlog
 from aiogram import Router
 from aiogram.filters import Command
@@ -136,6 +137,7 @@ async def close_and_save_filters(
     await callback.answer()
     await state.clear()
     await callback.message.delete()
+    await send_main_menu(event=callback, session=session, edit=False)
 
 
 @router.message(Command("show_filters"))
