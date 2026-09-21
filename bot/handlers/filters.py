@@ -219,3 +219,30 @@ async def start_exclude_keywords_changing(callback: CallbackQuery, state: FSMCon
     from bot.handlers.filters_widget.exclude_keyword import show_exclude_keywords_menu
 
     await show_exclude_keywords_menu(callback, state)
+
+
+@router.callback_query(lambda c: c.data == "toggle_startups")
+async def callback_toggle_startups(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    filters = data.get("filters", {})
+    
+    filters["only_startups"] = not filters.get("only_startups", False)
+    
+    await state.update_data(filters=filters)
+    await callback.message.edit_reply_markup(reply_markup=get_filters_keyboard(filters))
+
+
+@router.callback_query(lambda c: c.data == "toggle_currency")
+async def callback_toggle_currency(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    filters = data.get("filters", {})
+    
+    # Ротируем валюту по кругу при каждом клике
+    current_currency = filters.get("currency", "RUR")
+    currency_cycle = {"RUR": "USD", "USD": "EUR", "EUR": "RUR"}
+    filters["currency"] = currency_cycle.get(current_currency, "RUR")
+    
+    await state.update_data(filters=filters)
+    await callback.message.edit_reply_markup(reply_markup=get_filters_keyboard(filters))

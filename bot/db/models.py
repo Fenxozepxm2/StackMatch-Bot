@@ -79,6 +79,7 @@ class Filter_HH(Base):
     )
 
     filters: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
+    user: Mapped["User"] = relationship(back_populates="filter", uselist=False)
 
     # salary_from: Mapped[int] = mapped_column(default=0)
     # salary_to: Mapped[int] = mapped_column(default=0)
@@ -96,7 +97,6 @@ class Filter_HH(Base):
     # find_key_words: Mapped[Optional[List[str]]] = mapped_column(JSON, server_default='[]')
     # exclude_key_words: Mapped[Optional[List[str]]] = mapped_column(JSON, server_default='[]')
 
-    user: Mapped["User"] = relationship(back_populates="filter", uselist=False)
 
 
 class ActionType(enum.Enum):
