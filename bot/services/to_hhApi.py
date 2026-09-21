@@ -54,6 +54,15 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
         search_parts.append(f"NAME:({spec})")
 
 
+
+    if user_filters.get("user_tech_stack"):
+        # Вытаскиваем массив строк, например: ["FastAPI", "Docker", "PostgreSQL"]
+        tech_stack = user_filters["user_tech_stack"]
+        if isinstance(tech_stack, list) and tech_stack:
+            # Собираем технологии через пробел для ключевых слов API HH
+            search_parts.append(" ".join(tech_stack))
+
+
     if user_filters.get("only_startups"):
         search_parts.append("(startup OR стартап OR опцион OR equity OR доля)")
 
@@ -111,7 +120,7 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
         del params["schedule"]
 
     # если у типа удалёнка
-    if params["schedule"]:
+    if params.get("schedule") and "remote" in params["schedule"] and "area" in params:
         del params["area"]
         
 
@@ -235,15 +244,68 @@ class HHAPI:
         }
 
     @staticmethod
-    async def personalize_score_safe(vacancy: dict, user_skills: list, user_disliked: list, user_liked: list) -> int:
-        # Простой и надежный алгоритм первичного скоринга по названию и ключевым полям
+    async def personalize_score_safe(vacancy: dict, user_skills: list, user_disliked: list, user_liked: list, user_filters: dict = None) -> int:
+        """
+        ИТ-скоринг вакансии на основе key_skills и текста.
+        Если включен тумблер stack_strict и совпало < 50% стека, возвращает -999 для отсечения.
+        """
         score = 0
-        full_text = f"{vacancy.get('name', '')} {vacancy.get('snippet', {}).get('requirement', '')}".lower()
+        user_filters = user_filters or {}
         
+        # 1. Получаем реальные навыки вакансии (из key_skills)
+        raw_skills = vacancy.get("key_skills", []) or []
+        vac_skills = [str(item.get("name", "")).strip().lower() for item in raw_skills if item.get("name")]
+        
+        # Собираем текст названия и описания для поиска технологий
+        vac_name_lower = str(vacancy.get("name", "")).lower()
+        vac_desc_lower = str(vacancy.get("description", "")).lower()
+        full_vac_text = f"{vac_name_lower} {vac_desc_lower}"
+
+        # 2. ПРОВЕРКА НА 50%+ СОВПАДЕНИЕ СТЕКА (Используем правильные ключи из фильтров: "stack" и "stack_strict")
+        user_tech_stack = user_filters.get("stack", [])
+        strict_stack_filter = user_filters.get("stack_strict", False)
+
+        if user_tech_stack:
+            matched_count = 0
+            for tech in user_tech_stack:
+                tech_lower = tech.lower()
+                
+                # Ищем технологию сначала в официальных тегах, а если там нет — в самом тексте вакансии
+                if tech_lower in vac_skills or tech_lower in full_vac_text:
+                    matched_count += 1
+
+            # Вычисляем процент совпадения
+            match_percentage = (matched_count / len(user_tech_stack)) * 100
+            
+            # Если включен тумблер ЖЕСТКОГО ОТБОРА и совпало меньше половины — бракуем вакансию
+            if strict_stack_filter and match_percentage < 50:
+                return -999  # Секретный маркер для удаления из списка
+
+        # 3. НАЧИСЛЕНИЕ БАЛЛОВ ЗА СТЕК
+        if user_tech_stack:
+            for tech in user_tech_stack:
+                tech_lower = tech.lower()
+                if tech_lower in vac_skills:
+                    score += 10
+                elif tech_lower in full_vac_text:
+                    score += 5  # чуть меньше, если совпало просто в тексте
+
+        # 4. СКОРИНГ НА ОСНОВЕ ИСТОРИИ ЛАЙКОВ/ДИЗЛАЙКОВ
         for skill in (user_skills or []):
-            if skill.lower() in full_text:
-                score += 10
+            if skill.lower() in vac_skills or skill.lower() in full_vac_text:
+                score += 5
+
+        for liked in (user_liked or []):
+            if liked.lower() in vac_skills or liked.lower() in full_vac_text:
+                score += 2
+
+        for disliked in (user_disliked or []):
+            if disliked.lower() in vac_skills or disliked.lower() in full_vac_text:
+                score -= 10  # Жестко опускаем вниз за дизлайкнутый стек
+
         return score
+
+
 
     @staticmethod
     async def search_vacancies(params: dict[str, Any], access_token: str, session: AsyncSession, http_session: aiohttp.ClientSession, tg_id: int) -> dict[str, Any]:

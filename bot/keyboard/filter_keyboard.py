@@ -4,6 +4,16 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def get_filters_keyboard(data: dict) -> InlineKeyboardMarkup:
+
+
+
+
+    tech_stack_list = data.get("user_tech_stack", [])
+    tech_stack_text = ", ".join(tech_stack_list) if tech_stack_list else "не задан"
+
+    # Статус тумблера жесткого отбора по совпадению >= 50%
+    strict_stack_status = "🟢 50%+ совпадение" if data.get("strict_stack_filter") else "⚪ Откл"
+
     # 1. Форматирование города
     city = data.get("city") or "не задан"
 
@@ -51,7 +61,9 @@ def get_filters_keyboard(data: dict) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=f"💰 Зарплата: {salary_text}", callback_data="edit_salary"),
             InlineKeyboardButton(text=f"💱 Валюта: {currency}", callback_data="toggle_currency")
         ],
-        [InlineKeyboardButton(text=f"🚀 Стек (Язык): {specialization}", callback_data="edit_specialization")],
+        [InlineKeyboardButton(text=f"💻 Направление: {specialization}", callback_data="edit_specialization")],
+        [InlineKeyboardButton(text=f"🛠 Мой Стек: {tech_stack_text}", callback_data="edit_tech_stack")],
+        [InlineKeyboardButton(text=f"🎯 Фильтр по стеку: {strict_stack_status}", callback_data="toggle_strict_stack")],
         [InlineKeyboardButton(text=f"🕒 Опыт: {exp_text}", callback_data="edit_exp")],
         [InlineKeyboardButton(text=f"📅 График: {schedule_text}", callback_data="edit_schedule")],
         [InlineKeyboardButton(text=f"🏢 Формат: {work_format_text}", callback_data="edit_work_format")],

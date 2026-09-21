@@ -1,9 +1,15 @@
 from bot.services.main_menu import send_main_menu
 import structlog
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputRichMessage,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.db.models import *
@@ -49,6 +55,43 @@ router.include_router(exclude_keyword.exclude_keywords_router)
 #     waiting_for_input = State()
 #     choosing_shedule = State()
 #     choosing_exp = State()
+
+@router.message(F.text.startswith("добавить_стек:"))
+async def process_added_inline_tech(message: Message, state: FSMContext):
+    new_tech = message.text.replace("добавить_стек:", "").strip()
+    
+    state_data = await state.get_data()
+    filters = state_data.get("filters", {})
+    current_stack = filters.get("user_tech_stack", [])
+    
+    if new_tech not in current_stack:
+        current_stack.append(new_tech)
+        filters["user_tech_stack"] = current_stack
+        await state.update_data(filters=filters)
+    
+    await message.delete()
+    await state.update_data(expecting="tech_stack")
+    
+    save_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⌨️ Выбрать еще навык", switch_inline_query_current_chat="stack: ")
+            ],
+            [
+                InlineKeyboardButton(text="🟢 Завершить и сохранить стек", callback_data="finish_tech_stack")
+            ]
+        ]
+    )
+
+    await message.answer(
+        f"➕ Добавлено: <code>{new_tech}</code>\n"
+        f"📋 Весь стек: <code>{', '.join(current_stack)}</code>\n\n"
+        f"<i>Вы можете продолжить выбор или нажать кнопку ниже для сохранения:</i>",
+        parse_mode="HTML",
+        reply_markup=save_keyboard
+    )
+
+
 
 
 @router.message(FilterForm.waiting_for_input)
@@ -118,6 +161,47 @@ async def universal_text_handler(message: Message, state: FSMContext):
         )
 
         await process_exclude_keywords_input(message, state)
+    elif expecting == "tech_stack":
+        text = message.text.strip()
+        if not text:
+            await message.answer("Стек не может быть пустым.")
+            return
+
+        # Разрезаем строку по запятым, чистим пробелы вокруг слов и убираем пустышки
+        new_technologies = [word.strip() for word in text.split(",") if word.strip()]
+
+        if not new_technologies:
+            await message.answer("Не удалось распознать технологии. Напишите их через запятую.")
+            return
+
+        filters = data.get("filters", {})
+        current_stack = filters.get("user_tech_stack", [])
+
+        # Пакетное добавление с защитой от дублирования
+        added_count = 0
+        for tech in new_technologies:
+            # Приводим к красивому регистру (первая буква заглавная, например fastapi -> Fastapi)
+            # Но для аббревиатур вроде API, gRPC, CI/CD лучше оставить оригинальный ввод пользователя,
+            # поэтому возьмем просто исходное слово, убрав лишние символы
+            formatted_tech = tech.strip(",. ")
+            
+            if formatted_tech and formatted_tech not in current_stack:
+                current_stack.append(formatted_tech)
+                added_count += 1
+
+        filters["user_tech_stack"] = current_stack
+        await state.update_data(filters=filters, expecting=None)
+        await state.set_state(None) # Сбрасываем стейт ввода
+
+        # Генерируем обновленную клавиатуру
+        keyboard = get_filters_keyboard(filters)
+        
+        await message.answer(
+            f"✅ Успешно добавлено технологий: <b>{added_count}</b>\n"
+            f"📦 Текущий стек: <code>{', '.join(current_stack)}</code>", 
+            parse_mode="HTML"
+        )
+        await message.answer("🔍 Настройки фильтрации:", reply_markup=keyboard)
 
     else:
         await message.answer("Я не ожидаю текст. Используйте кнопки.")
@@ -219,6 +303,100 @@ async def start_exclude_keywords_changing(callback: CallbackQuery, state: FSMCon
     from bot.handlers.filters_widget.exclude_keyword import show_exclude_keywords_menu
 
     await show_exclude_keywords_menu(callback, state)
+
+
+@router.callback_query(lambda c: c.data == "toggle_strict_stack")
+async def callback_toggle_strict_stack(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    data = await state.get_data()
+    filters = data.get("filters", {})
+    
+    filters["strict_stack_filter"] = not filters.get("strict_stack_filter", False)
+    
+    await state.update_data(filters=filters)
+    await callback.message.edit_reply_markup(reply_markup=get_filters_keyboard(filters))
+
+
+
+@router.callback_query(lambda c: c.data == "edit_tech_stack")
+async def start_tech_stack_changing(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+
+    await state.update_data(expecting="tech_stack")
+    
+    inline_hint_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⌨️ Помощник автодополнения (по одной)", 
+                    switch_inline_query_current_chat="stack: "
+                )
+                
+            ],
+            [InlineKeyboardButton(text="Очистить", callback_data="remove_stack")]
+        ]
+    )
+    
+    hint_text = (
+        "🚀 <b>Настройка твоего IT-стека</b>\n\n"
+        "Вы можете ввести список технологий <b>одним сообщением через запятую</b>.\n"
+        "<i>Пример: Python, FastAPI, PostgreSQL, Docker, Git</i>\n\n"
+        "💡 Или нажмите кнопку ниже, чтобы использовать интерактивный помощник автодополнения слов.\n\n"
+        "<b>Отправьте ваш стек сообщением в чат:</b>"
+    )
+    
+    await callback.message.answer(text=hint_text, parse_mode="HTML", reply_markup=inline_hint_keyboard)
+
+
+@router.callback_query(lambda c: c.data == "remove_stack")
+async def remove_stack_filter(callback: CallbackQuery, state: FSMContext):
+    # 1. Выдаем всплывающее уведомление в Телеграме, что стек очищен
+    await callback.answer("Стек технологий полностью сброшен! 🧹")
+    
+    # 2. Вытаскиваем текущие данные из состояния
+    state_data = await state.get_data()
+    filters = state_data.get("filters", {})
+    
+    # 3. Полностью вычищаем ключи нашего ИТ-стека
+    filters["user_tech_stack"] = []
+    filters["strict_stack_filter"] = False # Отключаем жесткий фильтр совпадения
+    
+    # 4. Сохраняем обновленные пустые фильтры обратно в стейт оперативки
+    await state.update_data(filters=filters)
+    
+    # 5. Мгновенно перерисовываем инлайн-кнопки на экране, чтобы обновить статус стека
+    await callback.message.edit_reply_markup(
+        reply_markup=get_filters_keyboard(filters)
+    )
+
+
+    
+
+
+
+@router.callback_query(lambda c: c.data == "finish_tech_stack")
+async def callback_finish_tech_stack(callback: CallbackQuery, state: FSMContext):
+    await callback.answer("Стек успешно сохранен! 🚀")
+    
+    # Полностью сбрасываем флаги ожидания текста
+    await state.update_data(expecting=None)
+    
+    state_data = await state.get_data()
+    filters = state_data.get("filters", {})
+    
+    # Удаляем промежуточное сообщение с кнопками, чтобы не захламлять чат
+    await callback.message.delete()
+    
+    # Возвращаем главное окно настроек с обновленными данными
+    keyboard = get_filters_keyboard(filters)
+    await callback.message.answer("🔍 Настройки фильтрации:", reply_markup=keyboard)
+
+
+
+
+
+
+
 
 
 @router.callback_query(lambda c: c.data == "toggle_startups")

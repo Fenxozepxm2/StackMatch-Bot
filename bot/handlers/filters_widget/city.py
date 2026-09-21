@@ -23,6 +23,8 @@ async def show_city_menu(callback: CallbackQuery, state: FSMContext):
     text = f"🏙 Город: {current_city if current_city else 'не задан'}"
     buttons = [
         [InlineKeyboardButton(text="✏️ Изменить город", callback_data="change_city")],
+        [InlineKeyboardButton(text="✏️ Очистить город", callback_data="remove_city")],
+
         [InlineKeyboardButton(text="🔙 Назад", callback_data="city_back_to_main")],
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -34,6 +36,28 @@ async def show_city_menu(callback: CallbackQuery, state: FSMContext):
 async def edit_city_callback(callback: CallbackQuery, state: FSMContext):
     await show_city_menu(callback, state)
 
+
+
+
+@city_router.callback_query(lambda c: c.data == "remove_city")
+async def change_city(callback: CallbackQuery, state: FSMContext):
+    # 1. Выдаем всплывающее уведомление в Телеграме, что стек очищен
+    await callback.answer("Город очищен! 🧹")
+    
+    # 2. Вытаскиваем текущие данные из состояния
+    state_data = await state.get_data()
+    filters = state_data.get("filters", {})
+    
+    # 3. Полностью вычищаем ключи нашего ИТ-стека
+    filters["city"] = []
+    
+    # 4. Сохраняем обновленные пустые фильтры обратно в стейт оперативки
+    await state.update_data(filters=filters)
+    
+    # 5. Мгновенно перерисовываем инлайн-кнопки на экране, чтобы обновить статус стека
+    await callback.message.edit_reply_markup(
+        reply_markup=get_filters_keyboard(filters)
+    )
 
 @city_router.callback_query(lambda c: c.data == "change_city")
 async def change_city(callback: CallbackQuery, state: FSMContext):

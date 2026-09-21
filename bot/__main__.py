@@ -8,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.client.session.aiohttp import AiohttpSession
 
 from bot.config import load_config
-from bot.handlers import daily_vac, filters, find_vacancies, start_bot, vac_history
+from bot.handlers import daily_vac, filters, find_vacancies, start_bot, vac_history, inline_keyboard
 from bot.logging_config import setup_logging
 from bot.midlewares.for_db import DBSessionMiddleware
 from bot.services.city_mapper import CityMapper
@@ -64,6 +64,7 @@ async def main():
         dp.include_router(find_vacancies.router)
         dp.include_router(vac_history.router)
         dp.include_router(daily_vac.router)
+        dp.include_router(inline_keyboard.inline_router)
 
         dp.startup.register(on_startup)
 
