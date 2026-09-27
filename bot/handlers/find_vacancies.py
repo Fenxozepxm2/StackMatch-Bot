@@ -163,15 +163,12 @@ async def process_vacancy_action(
         await render_vacancy_card(callback.message, state, session, http_session, new_index, vacancies)
         return
 
-
-    print(current_index)
-    print(vacancies[current_index])
     # 3. ОБРАБОТКА ЛАЙКОВ / СКИПОВ (Если это были они)
     if callback.data.startswith("like_"):
 
         await callback.answer("Добавлено в Избранное! ❤️")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.get_key_skills_vac(vac_id,config.access_token.access_token, http_session)
+        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
         print(key_skills)
         await add_vacancy_action(session, tg_id, vacancies[current_index], "like", key_skills)
         
@@ -179,7 +176,7 @@ async def process_vacancy_action(
 
         await callback.answer("Вакансия пропущена ❌")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.get_key_skills_vac(vac_id,config.access_token.access_token, http_session)
+        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
         print(key_skills)
         await add_vacancy_action(session, tg_id, vacancies[current_index], "skip")
 

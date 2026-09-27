@@ -187,7 +187,7 @@ class HHAPI:
         clean_description = "Описание загружается..."
         if id_vac and http_session:
             try:
-                full_data = await HHAPI.get_key_skills_vac(id_vac, config.access_token.access_token, http_session)
+                full_data = await HHAPI.full_vacancy_id(id_vac, config.access_token.access_token, http_session)
                 clean_description = HHAPI.clean_html(full_data.get("description", ""))
             except Exception:
                 clean_description = "Не удалось подгрузить полное описание вакансии."
@@ -364,7 +364,7 @@ class HHAPI:
 
 
     @staticmethod
-    async def get_key_skills_vac(vac_id: int, access_token, htpp_session: aiohttp.ClientSession) -> dict:
+    async def full_vacancy_id(vac_id: int, access_token, htpp_session: aiohttp.ClientSession) -> dict:
 
 
         headers = {
