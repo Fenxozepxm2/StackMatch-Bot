@@ -51,8 +51,7 @@ def get_filters_keyboard(data: dict) -> InlineKeyboardMarkup:
     else:
         work_format_text = "не задан"
 
-    # 7. Динамический статус тумблера стартапов
-    startup_status = "🟢 Вкл" if data.get("only_startups") else "⚪ Откл"
+
 
     # Собираем чистые, удобные кнопки без лишнего мусора
     buttons = [
@@ -67,8 +66,6 @@ def get_filters_keyboard(data: dict) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=f"🕒 Опыт: {exp_text}", callback_data="edit_exp")],
         [InlineKeyboardButton(text=f"📅 График: {schedule_text}", callback_data="edit_schedule")],
         [InlineKeyboardButton(text=f"🏢 Формат: {work_format_text}", callback_data="edit_work_format")],
-        # Вместо "только стартапы/доля" ставим твой лаконичный тумблер
-        [InlineKeyboardButton(text=f"🦄 Поиск стартапов: {startup_status}", callback_data="toggle_startups")],
         [InlineKeyboardButton(text=f"✅ Готово", callback_data="close_filters")],
     ]
     

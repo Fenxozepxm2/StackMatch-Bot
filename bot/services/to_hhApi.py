@@ -63,8 +63,6 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
             search_parts.append(" ".join(tech_stack))
 
 
-    if user_filters.get("only_startups"):
-        search_parts.append("(startup OR стартап OR опцион OR equity OR доля)")
 
     if search_parts:
         params["text"] = " ".join(search_parts)
@@ -189,7 +187,7 @@ class HHAPI:
         clean_description = "Описание загружается..."
         if id_vac and http_session:
             try:
-                full_data = await HHAPI.full_vacanci_id(id_vac, config.access_token.access_token, http_session)
+                full_data = await HHAPI.get_key_skills_vac(id_vac, config.access_token.access_token, http_session)
                 clean_description = HHAPI.clean_html(full_data.get("description", ""))
             except Exception:
                 clean_description = "Не удалось подгрузить полное описание вакансии."
@@ -366,7 +364,7 @@ class HHAPI:
 
 
     @staticmethod
-    async def full_vacanci_id(vac_id: int, access_token, htpp_session: aiohttp.ClientSession) -> dict:
+    async def get_key_skills_vac(vac_id: int, access_token, htpp_session: aiohttp.ClientSession) -> dict:
 
 
         headers = {
@@ -381,21 +379,21 @@ class HHAPI:
 
                     data = await response.json()
                     print(data)
-                    # raw_skills = data.get("key_skills", [])
+                    raw_skills = data.get("key_skills", [])
                     
-                    # key_skills_list = []
-                    # for item in raw_skills:
-                    #     skill_name = item.get("name")
-                    #     if skill_name:
-                    #         key_skills_list.append(skill_name)
+                    key_skills_list = []
+                    for item in raw_skills:
+                        skill_name = item.get("name")
+                        if skill_name:
+                            key_skills_list.append(skill_name)
 
-                    # print(f"✅ Успешно спарсили навыки для вакансии {vac_id}: {key_skills_list}")
+                    print(f"✅ Успешно спарсили навыки для вакансии {vac_id}: {key_skills_list}")
                     return data
 
 
                 else:
                     error_text = await response.text()
-                    raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")  
+                    raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")
 
 
 

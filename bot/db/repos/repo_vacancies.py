@@ -131,6 +131,8 @@ async def del_fav_vac_from_db(
     await session.commit()
 
 
+
+
 async def get_last_vacancy_check(session: AsyncSession, tg_id: int):
     user_tg_id = select(User.id).where(User.tg_id == tg_id)
     user_result = await session.execute(user_tg_id)
