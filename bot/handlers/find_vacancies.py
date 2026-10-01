@@ -172,7 +172,9 @@ async def process_vacancy_action(
 
         await callback.answer("Добавлено в Избранное! ❤️")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        raw_skills = full_data.get("key_skills", [])
+        key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
         await add_vacancy_action(session, tg_id, vacancies[current_index], "like", key_skills)
         
@@ -180,9 +182,11 @@ async def process_vacancy_action(
 
         await callback.answer("Вакансия пропущена ❌")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        raw_skills = full_data.get("key_skills", [])
+        key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
-        await add_vacancy_action(session, tg_id, vacancies[current_index], "skip")
+        await add_vacancy_action(session, tg_id, vacancies[current_index], "skip", key_skills)
 
 
     # 4. ЛИСТАНИЕ ВПЕРЕД (Срабатывает при клике на "Далее", "Лайк" или "Скип")

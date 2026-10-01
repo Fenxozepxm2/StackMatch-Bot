@@ -394,24 +394,6 @@ async def callback_finish_tech_stack(callback: CallbackQuery, state: FSMContext)
 
 
 
-
-
-
-
-
-
-@router.callback_query(lambda c: c.data == "toggle_startups")
-async def callback_toggle_startups(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    data = await state.get_data()
-    filters = data.get("filters", {})
-    
-    filters["only_startups"] = not filters.get("only_startups", False)
-    
-    await state.update_data(filters=filters)
-    await callback.message.edit_reply_markup(reply_markup=get_filters_keyboard(filters))
-
-
 @router.callback_query(lambda c: c.data == "toggle_currency")
 async def callback_toggle_currency(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
