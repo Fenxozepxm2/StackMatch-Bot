@@ -16,7 +16,7 @@ async def send_main_menu(
     Генерирует и отправляет Главное меню.
     event может быть как Message (от команды /start), так и CallbackQuery (от кнопок).
     """
-    # 🎯 ГАРАНТИРОВАННО ПОЛУЧАЕМ ИМЯ РЕАЛЬНОГО ЮЗЕРА, А НЕ БОТА
+    # ГАРАНТИРОВАННО ПОЛУЧАЕМ ИМЯ РЕАЛЬНОГО ЮЗЕРА, А НЕ БОТА
     if isinstance(event, CallbackQuery):
         user_first_name = event.from_user.first_name
         target_message = event.message  # Сообщение, которое будем редактировать
@@ -37,8 +37,7 @@ async def send_main_menu(
         f"<p>🛠 <b>Фильтры</b> — настроить стек, ключевые слова, город и зарплату</p>"
         f"<p>⭐️ <b>Избранное</b> — посмотреть сохраненные вакансии с возможностью удаления</p>"
         f"<p>❓ <b>Справка</b> — руководство по использованию скоринга</p>"
-        f"<br>"
-        f"<footer>Версия бота: 1.0.4 | База данных: Online</footer>"
+
     )
 
     keyboard = InlineKeyboardMarkup(

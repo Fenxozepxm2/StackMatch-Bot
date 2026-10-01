@@ -29,7 +29,7 @@ async def add_vacancy_action(
         db_action = ActionType.LIKE
     elif action == "view":
         db_action = ActionType.VIEWED
-    else:
+    elif action == "skip":
         db_action = ActionType.SKIP
 
     try:

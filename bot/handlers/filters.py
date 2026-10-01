@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.db.models import *
 from bot.db.repos.repo_filters import get_user_filters, save_filters
+from bot.db.repos.repo_user import save_user
 from bot.handlers.filters_widget import (
     city,
     exclude_keyword,
@@ -233,7 +234,7 @@ async def show_filters(
         tg_id = message.from_user.id
 
 
-    
+    await save_user(session, tg_id, message.from_user.username)
     
     # Получаем словарь с фильтрами (если нет — пустой)
     filters_dict = await get_user_filters(session, tg_id)
@@ -391,24 +392,6 @@ async def callback_finish_tech_stack(callback: CallbackQuery, state: FSMContext)
     keyboard = get_filters_keyboard(filters)
     await callback.message.answer("🔍 Настройки фильтрации:", reply_markup=keyboard)
 
-
-
-
-
-
-
-
-
-@router.callback_query(lambda c: c.data == "toggle_startups")
-async def callback_toggle_startups(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    data = await state.get_data()
-    filters = data.get("filters", {})
-    
-    filters["only_startups"] = not filters.get("only_startups", False)
-    
-    await state.update_data(filters=filters)
-    await callback.message.edit_reply_markup(reply_markup=get_filters_keyboard(filters))
 
 
 @router.callback_query(lambda c: c.data == "toggle_currency")

@@ -16,7 +16,7 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.config import load_config
-from bot.db.repos.repo_user import get_user
+from bot.db.repos.repo_user import get_user, save_user
 from bot.db.repos.repo_vacancies import add_vacancy_action
 from bot.services.to_hhApi import HHAPI, filters_to_params_hh_api
 
@@ -80,6 +80,10 @@ async def finder(
             tg_id = message.from_user.id
 
         from bot.db.repos.repo_filters import get_user_filters
+
+        await save_user(session, tg_id, message.from_user.username)        
+
+
         db_filters = await get_user_filters(session, tg_id)
         user_filters = db_filters or {}
         await state.update_data(filters=user_filters)
@@ -168,7 +172,9 @@ async def process_vacancy_action(
 
         await callback.answer("Добавлено в Избранное! ❤️")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        raw_skills = full_data.get("key_skills", [])
+        key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
         await add_vacancy_action(session, tg_id, vacancies[current_index], "like", key_skills)
         
@@ -176,9 +182,11 @@ async def process_vacancy_action(
 
         await callback.answer("Вакансия пропущена ❌")
         vac_id = vacancies[current_index].get("id", "")
-        key_skills = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        raw_skills = full_data.get("key_skills", [])
+        key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
-        await add_vacancy_action(session, tg_id, vacancies[current_index], "skip")
+        await add_vacancy_action(session, tg_id, vacancies[current_index], "skip", key_skills)
 
 
     # 4. ЛИСТАНИЕ ВПЕРЕД (Срабатывает при клике на "Далее", "Лайк" или "Скип")

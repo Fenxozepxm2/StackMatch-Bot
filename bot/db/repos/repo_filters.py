@@ -1,7 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.db.models import Filter_HH
+
+
+
+from bot.db.models import Filter_HH, User
 
 
 async def get_user_filters(session: AsyncSession, tg_id: int) -> dict:
@@ -17,11 +20,27 @@ async def save_filters(session: AsyncSession, new_filters: dict, tg_id: int) -> 
     result = await session.execute(query)
     filters_db = result.scalar_one_or_none()
 
+
     if filters_db:
         filters_db.filters = new_filters
+
     else:
         filters_db = Filter_HH(tg_id=tg_id, filters=new_filters)
         session.add(filters_db)
+
+
+    result = await session.execute(select(User).where(User.tg_id == tg_id))
+    user = result.scalar_one_or_none()
+
+
+    user_skills = new_filters.get("user_tech_stack", [])
+
+
+
+
+    if user_skills:
+        user.skills = user_skills
+
 
     await session.commit()
 

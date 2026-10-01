@@ -8,7 +8,7 @@ from bot.config import load_config
 config = load_config()
 
 def custom_json_serializer(*args, **kwargs):
-    kwargs['ensure_ascii'] = False  # <--- КЛЮЧЕВОЙ ФЛАГ: отключает \u00xx кодирование
+    kwargs['ensure_ascii'] = False  
     return json.dumps(*args, **kwargs)
 
 

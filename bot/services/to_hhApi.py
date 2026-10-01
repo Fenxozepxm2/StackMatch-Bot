@@ -140,7 +140,7 @@ async def filters_to_params_hh_api(tg_id: int, session: AsyncSession, page: int 
         if isinstance(v, bool):
             params[k] = "true" if v else "false"
 
-    print('-'*80 + f'{params}' + '\n' + '-'*80)
+    # print('-'*80 + '\n' + f'{params}' + '\n' + '-'*80)
 
     return params
 
@@ -189,6 +189,7 @@ class HHAPI:
             try:
                 full_data = await HHAPI.full_vacancy_id(id_vac, config.access_token.access_token, http_session)
                 clean_description = HHAPI.clean_html(full_data.get("description", ""))
+
             except Exception:
                 clean_description = "Не удалось подгрузить полное описание вакансии."
 
@@ -226,7 +227,7 @@ class HHAPI:
             f"<br>"
             f"<details>"
             f"  <summary><b>📝 Показать полное описание вакансии</b></summary>"
-            f"  <p><i>{clean_description}</i></p>"
+            f"  <p><blockquote>{clean_description}</blockquote></p>"
             f"</details>"
             f"<br>"
             f"<p>🛠 <b>Ключевые навыки:</b> {skills_text}</p>"
@@ -381,13 +382,7 @@ class HHAPI:
                     print(data)
                     raw_skills = data.get("key_skills", [])
                     
-                    key_skills_list = []
-                    for item in raw_skills:
-                        skill_name = item.get("name")
-                        if skill_name:
-                            key_skills_list.append(skill_name)
-
-                    print(f"✅ Успешно спарсили навыки для вакансии {vac_id}: {key_skills_list}")
+                    
                     return data
 
 
@@ -396,7 +391,17 @@ class HHAPI:
                     raise Exception(f"Ошибка API hh.ru: {response.status}. Ответ: {error_text}")
 
 
+    @staticmethod
+    async def get_key_skills(raw_skills: list) -> list:
+        key_skills_list = []
+        for item in raw_skills:
+            skill_name = item.get("name")
+            if skill_name:
+                key_skills_list.append(skill_name)
+        
+        print(f"✅ Успешно спарсили навыки вакансии: {key_skills_list}")
 
+        return key_skills_list
 
 
     @staticmethod

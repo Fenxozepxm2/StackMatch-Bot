@@ -9,12 +9,12 @@ from bot.db.models import User
 async def save_user(
     session: AsyncSession,
     tg_id: int,
-    username: str,
-    last_seen_in_bot: datetime,
-    created_at: datetime,
-    name: str,
+    username: str | None = None,
+    name: str | None = None,
 ) -> User:
     "Запись нового юзера в БД"
+    from bot.handlers.start_bot import utc_now
+
 
     query = select(User).where(User.tg_id == tg_id)
     result = await session.execute(query)
@@ -24,15 +24,19 @@ async def save_user(
         user = User(
             tg_id=tg_id,
             username=username,
-            last_seen_in_bot=last_seen_in_bot,
-            created_at=created_at,
+            last_seen_in_bot=utc_now(),
+            created_at=utc_now(),
             name=name,
         )
         session.add(user)
-        await session.commit()
-        return user
     else:
-        return user
+        user.last_seen_in_bot = utc_now()
+
+
+    await session.commit()
+
+    await session.refresh(user) 
+    return user
 
 
 async def get_user(
