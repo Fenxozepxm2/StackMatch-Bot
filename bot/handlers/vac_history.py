@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.config import load_config
 from bot.db.repos.repo_vacancies import del_fav_vac_from_db, get_favorite_vac
+from bot.db.repos.repo_user import save_user
 
 config = load_config()
 
@@ -28,6 +29,8 @@ async def show_all_history_messages(
 
         if tg_id is None:
             tg_id = message.from_user.id
+
+        await save_user(session, tg_id, message.from_user.username)
 
         # 1. Получаем список лайкнутых вакансий из базы
         favorites = await get_favorite_vac(session, tg_id=tg_id)

@@ -189,6 +189,7 @@ class HHAPI:
             try:
                 full_data = await HHAPI.full_vacancy_id(id_vac, config.access_token.access_token, http_session)
                 clean_description = HHAPI.clean_html(full_data.get("description", ""))
+
             except Exception:
                 clean_description = "Не удалось подгрузить полное описание вакансии."
 
@@ -226,7 +227,7 @@ class HHAPI:
             f"<br>"
             f"<details>"
             f"  <summary><b>📝 Показать полное описание вакансии</b></summary>"
-            f"  <p><i>{clean_description}</i></p>"
+            f"  <p><blockquote>{clean_description}</blockquote></p>"
             f"</details>"
             f"<br>"
             f"<p>🛠 <b>Ключевые навыки:</b> {skills_text}</p>"

@@ -16,7 +16,7 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.config import load_config
-from bot.db.repos.repo_user import get_user
+from bot.db.repos.repo_user import get_user, save_user
 from bot.db.repos.repo_vacancies import add_vacancy_action
 from bot.services.to_hhApi import HHAPI, filters_to_params_hh_api
 
@@ -80,6 +80,10 @@ async def finder(
             tg_id = message.from_user.id
 
         from bot.db.repos.repo_filters import get_user_filters
+
+        await save_user(session, tg_id, message.from_user.username)        
+
+
         db_filters = await get_user_filters(session, tg_id)
         user_filters = db_filters or {}
         await state.update_data(filters=user_filters)

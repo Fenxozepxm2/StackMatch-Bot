@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.db.models import *
 from bot.db.repos.repo_filters import get_user_filters, save_filters
+from bot.db.repos.repo_user import save_user
 from bot.handlers.filters_widget import (
     city,
     exclude_keyword,
@@ -233,7 +234,7 @@ async def show_filters(
         tg_id = message.from_user.id
 
 
-    
+    await save_user(session, tg_id, message.from_user.username)
     
     # Получаем словарь с фильтрами (если нет — пустой)
     filters_dict = await get_user_filters(session, tg_id)

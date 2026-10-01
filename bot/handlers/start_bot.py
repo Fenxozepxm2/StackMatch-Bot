@@ -65,14 +65,13 @@ async def start(message: Message, session: AsyncSession) -> None:
 
     await send_main_menu(message, session, edit=False)
 
+    print(f"utc print dev: {utc_now()}")
     print(utc_now)
 
     user = await save_user(
         session=session,
         tg_id=message.from_user.id,
         username=message.from_user.username,
-        last_seen_in_bot=utc_now(),
-        created_at=utc_now(),
         name=message.from_user.first_name,
     )
 
