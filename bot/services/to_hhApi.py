@@ -379,9 +379,6 @@ class HHAPI:
                 if response.status == 200:
 
                     data = await response.json()
-                    print(data)
-                    raw_skills = data.get("key_skills", [])
-                    
                     
                     return data
 
