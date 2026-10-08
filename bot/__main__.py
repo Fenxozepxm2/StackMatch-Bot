@@ -1,3 +1,5 @@
+import os
+
 import asyncio
 
 
@@ -39,7 +41,6 @@ async def main():
     setup_logging(log_level="DEBUG")
 
     config = load_config()
-
 
 
 

@@ -5,14 +5,17 @@ from typing import Optional
 from sqlalchemy import (
     JSON,
     DateTime,
+    BigInteger,
     Enum,
     ForeignKey,
     String,
     UniqueConstraint,
     func,
+    text
 )
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Base(DeclarativeBase):
@@ -22,14 +25,16 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    tg_id: Mapped[int] = mapped_column(unique=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     username: Mapped[str] = mapped_column(nullable=True)
     name: Mapped[str] = mapped_column(nullable=True)
     last_seen_in_bot: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     balance: Mapped[int] = mapped_column(default=0)
 
     last_vacancy_check: Mapped[datetime] = mapped_column(
@@ -37,13 +42,13 @@ class User(Base):
     )
 
     skills: Mapped[list[str] | None] = mapped_column(
-        JSON, server_default="[]", nullable=True
+        JSONB, server_default=text("'[]'::jsonb"), nullable=True
     )
     liked: Mapped[list[str] | None] = mapped_column(
-        JSON, server_default="[]", nullable=True
+        JSONB, server_default=text("'[]'::jsonb"), nullable=True
     )
     disliked: Mapped[list[str] | None] = mapped_column(
-        JSON, server_default="[]", nullable=True
+        JSONB, server_default=text("'[]'::jsonb"), nullable=True
     )
 
     filter: Mapped[Optional["Filter_HH"]] = relationship(
@@ -62,7 +67,7 @@ class User_notification(Base):
 
     vacancy_id: Mapped[str] = mapped_column(String(124), unique=True, nullable=False)
 
-    vacancy_data: Mapped[str] = mapped_column(JSON, server_default="[]", nullable=True)
+    vacancy_data: Mapped[str] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=True)
 
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -79,7 +84,7 @@ class Filter_HH(Base):
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
     )
 
-    filters: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
+    filters: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     user: Mapped["User"] = relationship(back_populates="filter", uselist=False)
 
     # salary_from: Mapped[int] = mapped_column(default=0)

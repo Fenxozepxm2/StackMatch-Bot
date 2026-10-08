@@ -17,7 +17,6 @@ __pycache__/
 *.sqlite3
 
 # Конфиденциальные файлы
-settings.toml
 .env
 
 # Мусор среды разработки VS Code
