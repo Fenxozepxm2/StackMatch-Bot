@@ -176,6 +176,7 @@ async def process_vacancy_action(
         raw_skills = full_data.get("key_skills", [])
         key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
+        print("*" *80 +  "\n" + f"{tg_id}" + "*" *80 + "\n" )
         await add_vacancy_action(session, tg_id, vacancies[current_index], "like", key_skills)
         
     elif callback.data.startswith("skip_"):
@@ -231,7 +232,8 @@ async def process_vacancy_action(
 
             # Берем карточку-кандидата для проверки
             candidate_vac = vacancies[next_index]
-            
+            await session.refresh(user, attribute_names=["skills", "disliked", "liked"])
+
             # Считаем актуальный скоринг ПЕРЕД рендером
             score = await HHAPI.personalize_score_safe(
                 candidate_vac, user.skills or [], user.disliked or [], user.liked or [], user_filters=user_filters

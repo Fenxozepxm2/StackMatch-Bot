@@ -3,19 +3,18 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    JSON,
-    DateTime,
     BigInteger,
+    DateTime,
     Enum,
     ForeignKey,
     String,
     UniqueConstraint,
+    false,
     func,
-    text
+    text,
 )
-
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -25,10 +24,10 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
-    username: Mapped[str] = mapped_column(nullable=True)
-    name: Mapped[str] = mapped_column(nullable=True)
+    username: Mapped[str | None] = mapped_column(nullable=True)
+    name: Mapped[str | None] = mapped_column(nullable=True)
     last_seen_in_bot: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -37,7 +36,7 @@ class User(Base):
     )
     balance: Mapped[int] = mapped_column(default=0)
 
-    last_vacancy_check: Mapped[datetime] = mapped_column(
+    last_vacancy_check: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, server_default=func.now()
     )
 
@@ -61,48 +60,49 @@ class User_notification(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    # ForeignKey идёт ВТОРЫМ аргументом mapped_column, тип колонки — первым
     tg_id: Mapped[int] = mapped_column(
-        ForeignKey("users.tg_id", ondelete="CASCADE", name="fk_user_notification_tg_id")
+        BigInteger,
+        ForeignKey("users.tg_id", ondelete="CASCADE", name="fk_user_notification_tg_id"),
+        index=True,
     )
 
-    vacancy_id: Mapped[str] = mapped_column(String(124), unique=True, nullable=False)
+    vacancy_id: Mapped[str] = mapped_column(String(124), nullable=False)
 
-    vacancy_data: Mapped[str] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=True)
+    vacancy_data: Mapped[dict] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb"), nullable=True
+    )
 
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    viewed: Mapped[bool] = mapped_column(server_default="False")
+    viewed: Mapped[bool] = mapped_column(default=False, server_default=false())
+
+    # Уникальность на пару (юзер, вакансия), а не глобально по vacancy_id
+    __table_args__ = (
+        UniqueConstraint("tg_id", "vacancy_id", name="uq_notification_user_vacancy"),
+    )
 
 
 class Filter_HH(Base):
     __tablename__ = "filters_hh"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+
+    # В репозитории сюда пишется Telegram ID, поэтому FK на users.tg_id (BigInteger),
+    # а не на users.id
     tg_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+        BigInteger,
+        ForeignKey("users.tg_id", ondelete="CASCADE", name="fk_filters_hh_tg_id"),
+        unique=True,
+        index=True,
     )
 
-    filters: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    filters: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
     user: Mapped["User"] = relationship(back_populates="filter", uselist=False)
-
-    # salary_from: Mapped[int] = mapped_column(default=0)
-    # salary_to: Mapped[int] = mapped_column(default=0)
-
-    # city: Mapped[str] = mapped_column(String(100), server_default="any")
-    # specialization: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # payday: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # experience: Mapped[Optional[int]] = mapped_column(CheckConstraint("experience <= 9"), server_default=None)
-    # employmentZan: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # schedule: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # work_hours: Mapped[Optional[int]] = mapped_column(CheckConstraint("work_hours <= 24"), server_default=None)
-    # work_format: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # newest_first: Mapped[Optional[bool]] = mapped_column(default=True)
-    # employment_type: Mapped[Optional[str]] = mapped_column(String(100), server_default=None)
-    # find_key_words: Mapped[Optional[List[str]]] = mapped_column(JSON, server_default='[]')
-    # exclude_key_words: Mapped[Optional[List[str]]] = mapped_column(JSON, server_default='[]')
-
 
 
 class ActionType(enum.Enum):
@@ -116,23 +116,24 @@ class VacancyAction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    vacancy_id: Mapped[str] = mapped_column(String(50), index=True)
+    vacancy_id: Mapped[str] = mapped_column(String(124), index=True)
 
     action: Mapped[ActionType] = mapped_column(Enum(ActionType), nullable=False)
 
-    # Дополнительно: сохраним название вакансии и ссылку, чтобы легко выводить список лайкнутых
     vacancy_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vacancy_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
-    # При следующем обновлении БД обновить на tg_id
+    # Репозиторий пишет сюда внутренний User.id (db_user.id), поэтому FK на users.id (Integer)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.tg_id", ondelete="CASCADE", name="fk_vacancy_action_user_id"),
+        ForeignKey("users.id", ondelete="CASCADE", name="fk_vacancy_action_user_id"),
         index=True,
     )
 
-    # Уникальный индекс: один пользователь не может лайкнуть/скипнуть одну и ту же вакансию дважды
+    # Один пользователь не может лайкнуть/скипнуть одну и ту же вакансию дважды
     __table_args__ = (
         UniqueConstraint("user_id", "vacancy_id", name="uq_user_vacancy_action"),
     )

@@ -64,11 +64,7 @@ async def check_vacancies(bot: Bot, http_session: aiohttp.ClientSession) -> list
                 # список
                 top5_vac = [item[1] for item in top_5_scored]
 
-                print("----------- список вакансий в check_vacancies --------------")
-
-                print(top5_vac)
-
-                # тут отправляем пользователю
+                # отправка уведомления пользователю
                 if top5_vac:
                     notification_text = (
                         "🎯 <b>Ежедневный подбор</b>\n\n"
