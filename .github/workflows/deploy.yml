@@ -37,11 +37,11 @@ jobs:
           cd ~/stackmatch-dir
           
           # Скачиваем свежий образ из приватного репо Docker Hub
-          docker compose pull
+          sudo docker compose pull
           
           # Перезапускаем бота с новыми изменениями
-          docker compose up -d
+          sudo docker compose up -d
           
           # Чистим старые слои образов, чтобы не забивать диск
-          docker image prune -f
+          sudo docker image prune -f
 
