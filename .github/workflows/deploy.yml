@@ -41,11 +41,19 @@ jobs:
 
       - name: Deploy Docker Compose
         run: |
-
-          cd ${{ github.workspace }}
+          # 1. Переходим в рабочую папку, куда скачался чистый код
+          cd /home/def/actions-runner/stackmatch-dir/StackMatch-Bot/StackMatch-Bot
           
+          # 2. Копируем мастер-файлы из защищенного хранилища прямо сюда
+          cp /home/def/bot_secrets/.env .env
+          cp /home/def/bot_secrets/settings.toml settings.toml
+          
+          # 3. Полностью сбрасываем старые зависшие контейнеры (очистка конфликтов)
+          docker compose down
+          
+          # 4. Скачиваем свежий образ и запускаем проект
           docker compose pull
-          
           docker compose up -d
-
+          
+          # 5. Очищаем дисковый кэш
           docker image prune -f

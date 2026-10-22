@@ -16,8 +16,7 @@ __pycache__/
 *.db-journal
 *.sqlite3
 
-# Конфиденциальные файлы
-.env
+
 
 # Мусор среды разработки VS Code
 .vscode/
