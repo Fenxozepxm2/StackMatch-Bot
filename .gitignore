@@ -13,7 +13,6 @@ wheels/
 *.db
 
 .python-version
-uv.lock
 uv.toml
 settings.toml
 
