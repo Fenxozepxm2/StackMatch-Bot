@@ -39,7 +39,7 @@ jobs:
 
       - name: Deploy Docker Compose
         run: |
-          cd /home/def/myproject
+          cd ~/stackmatch-dir
           docker compose pull
           docker compose up -d
           docker image prune -f
