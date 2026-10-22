@@ -28,9 +28,11 @@ jobs:
 
   deploy:
     runs-on: self-hosted
-    needs: build-and-push # Запустится только после успешной сборки образа
+    needs: build-and-push
     steps:
-      # 4. Подключаемся к вашему Ubuntu-серверу по SSH и выполняем команды
+      - name: Checkout repository files on Server
+        uses: actions/checkout@v4
+
       - name: Log in to Docker Hub on Server
         uses: docker/login-action@v3
         with:
@@ -39,8 +41,11 @@ jobs:
 
       - name: Deploy Docker Compose
         run: |
-          cd ~/stackmatch-dir
-          docker compose pull
-          docker compose up -d
-          docker image prune -f
 
+          cd ${{ github.workspace }}
+          
+          docker compose pull
+          
+          docker compose up -d
+
+          docker image prune -f
