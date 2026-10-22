@@ -34,7 +34,7 @@ jobs:
       - name: Deploy Docker Compose
         run: |
           # Эти команды ваш сервер теперь выполняет сам внутри себя:
-          cd /home/def/myproject
+          cd ~/stackmatch-dir
           
           # Скачиваем свежий образ из приватного репо Docker Hub
           docker compose pull
