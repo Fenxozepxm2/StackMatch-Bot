@@ -32,3 +32,10 @@ jobs_backup.db
 build/
 dist/
 *.egg-info/
+
+settings.toml
+.env
+
+
+
+hihihaha.py

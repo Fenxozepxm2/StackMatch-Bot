@@ -1,16 +1,20 @@
-import os
-
 import asyncio
-
 
 import aiohttp
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from aiogram.client.session.aiohttp import AiohttpSession
 
 from bot.config import load_config
-from bot.handlers import daily_vac, filters, find_vacancies, start_bot, vac_history, inline_keyboard
+from bot.handlers import (
+    daily_vac,
+    filters,
+    find_vacancies,
+    inline_keyboard,
+    start_bot,
+    vac_history,
+)
 from bot.logging_config import setup_logging
 from bot.midlewares.for_db import DBSessionMiddleware
 from bot.services.city_mapper import CityMapper
@@ -42,21 +46,14 @@ async def main():
 
     config = load_config()
 
-
-
     async with aiohttp.ClientSession() as http_session:
         dp = Dispatcher()
-
-
 
         dp.workflow_data["http_session"] = http_session
 
         aiogram_session = AiohttpSession()
 
-        bot = Bot(
-            token=config.bot.token, 
-            session=aiogram_session
-        )
+        bot = Bot(token=config.bot.token, session=aiogram_session)
 
         dp.update.middleware(DBSessionMiddleware())
 
@@ -72,10 +69,14 @@ async def main():
         scheduler = AsyncIOScheduler()
 
         scheduler.add_job(
-            check_vacancies, trigger="cron", hour=10, minute=0, kwargs={"bot": bot, "http_session": http_session}
+            check_vacancies,
+            trigger="cron",
+            hour=10,
+            minute=0,
+            kwargs={"bot": bot, "http_session": http_session},
         )
         # scheduler.add_job(
-        #     check_vacancies, trigger="interval", minutes=1, kwargs={"bot": bot, "http_session": http_session}
+        #   check_vacancies, trigger="interval", minutes=1, kwargs={"bot": bot, "http_session": http_session}
         # )
 
         scheduler.start()
