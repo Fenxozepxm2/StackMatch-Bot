@@ -1,6 +1,6 @@
 import traceback
+
 import aiohttp
-from bot.services.city_mapper import CityMapper
 import structlog
 from aiogram import Router
 from aiogram.filters import Command
@@ -44,19 +44,30 @@ def get_vacancy_keyboard(id_vac: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="➡️ Далее", callback_data="next_vacancy"),
             ],
             [
-                InlineKeyboardButton(text="Отмена", callback_data="cancel_vacancy_menu"),
+                InlineKeyboardButton(
+                    text="Отмена", callback_data="cancel_vacancy_menu"
+                ),
             ],
         ]
     )
     return keyboard
 
 
-async def render_vacancy_card(message: Message, state: FSMContext, session: AsyncSession, http_session: aiohttp.ClientSession, target_index: int, vacancies: list):
+async def render_vacancy_card(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    http_session: aiohttp.ClientSession,
+    target_index: int,
+    vacancies: list,
+):
     current_vac = vacancies[target_index]
     vac_score = current_vac.get("calculated_score", 0)
-    
+
     # Генерируем карточку
-    vac_data = await HHAPI.format_vacancies(current_vac, score=vac_score, http_session=http_session)
+    vac_data = await HHAPI.format_vacancies(
+        current_vac, score=vac_score, http_session=http_session
+    )
 
     page_info = f"🗂 Вакансия {target_index + 1} из {len(vacancies)}"
     html_with_counter = vac_data["html_content"] + f"<br><footer>{page_info}</footer>"
@@ -64,16 +75,26 @@ async def render_vacancy_card(message: Message, state: FSMContext, session: Asyn
 
     try:
         if message.from_user.is_bot:
-            await message.edit_text(rich_message=rich_message, reply_markup=get_vacancy_keyboard(vac_data["id_vac"]))
+            await message.edit_text(
+                rich_message=rich_message,
+                reply_markup=get_vacancy_keyboard(vac_data["id_vac"]),
+            )
         else:
-            await message.answer_rich(rich_message=rich_message, reply_markup=get_vacancy_keyboard(vac_data["id_vac"]))
+            await message.answer_rich(
+                rich_message=rich_message,
+                reply_markup=get_vacancy_keyboard(vac_data["id_vac"]),
+            )
     except Exception:
         traceback.print_exc()
 
 
 @router.message(Command("finder"))
 async def finder(
-    message: Message, session: AsyncSession, http_session: aiohttp.ClientSession, state: FSMContext, tg_id: int | None = None
+    message: Message,
+    session: AsyncSession,
+    http_session: aiohttp.ClientSession,
+    state: FSMContext,
+    tg_id: int | None = None,
 ):
     try:
         if tg_id is None:
@@ -81,8 +102,7 @@ async def finder(
 
         from bot.db.repos.repo_filters import get_user_filters
 
-        await save_user(session, tg_id, message.from_user.username)        
-
+        await save_user(session, tg_id, message.from_user.username)
 
         db_filters = await get_user_filters(session, tg_id)
         user_filters = db_filters or {}
@@ -90,20 +110,30 @@ async def finder(
 
         params = await filters_to_params_hh_api(tg_id, session, page=0)
         response = await HHAPI.search_vacancies(
-            params, config.access_token.access_token, session, http_session=http_session, tg_id=tg_id
+            params,
+            config.access_token.access_token,
+            session,
+            http_session=http_session,
+            tg_id=tg_id,
         )
 
         vacancies = response.get("items", [])
         user = await get_user(session, tg_id)
 
         if not vacancies:
-            await message.answer("По вашим фильтрам ничего не найдено. Попробуйте изменить стек или грейд. 🔍")
+            await message.answer(
+                "По вашим фильтрам ничего не найдено. Попробуйте изменить стек или грейд. 🔍"
+            )
             return
 
         filtered_vacancies = []
         for vac in vacancies:
             score = await HHAPI.personalize_score_safe(
-                vac, user.skills or [], user.disliked or [], user.liked or [], user_filters=user_filters
+                vac,
+                user.skills or [],
+                user.disliked or [],
+                user.liked or [],
+                user_filters=user_filters,
             )
             if score != -999:
                 vac["calculated_score"] = score
@@ -112,7 +142,9 @@ async def finder(
         vacancies = filtered_vacancies
 
         if not vacancies:
-            await message.answer("По вашим фильтрам ничего не найдено (вакансии отсеяны по стеку). 🔍")
+            await message.answer(
+                "По вашим фильтрам ничего не найдено (вакансии отсеяны по стеку). 🔍"
+            )
             return
 
         vacancies.sort(key=lambda x: x.get("calculated_score", 0), reverse=True)
@@ -129,7 +161,10 @@ async def finder(
 
 @router.callback_query(VacancySearch.browsing)
 async def process_vacancy_action(
-    callback: CallbackQuery, state: FSMContext, session: AsyncSession, http_session: aiohttp.ClientSession
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    http_session: aiohttp.ClientSession,
 ):
     user_data = await state.get_data()
     vacancies = user_data.get("vacancies", [])
@@ -138,6 +173,7 @@ async def process_vacancy_action(
 
     # Подгружаем актуальные фильтры и юзера из БД при каждом действии
     from bot.db.repos.repo_filters import get_user_filters
+
     user_filters = await get_user_filters(session, tg_id) or {}
     user = await get_user(session, tg_id)
     await state.update_data(filters=user_filters)
@@ -145,6 +181,7 @@ async def process_vacancy_action(
     # 1. ОБРАБОТКА ОТМЕНЫ
     if callback.data == "cancel_vacancy_menu":
         from bot.services.main_menu import send_main_menu
+
         await callback.answer("Возврат в меню")
         await state.clear()
         await send_main_menu(event=callback, edit=True, session=session)
@@ -157,41 +194,58 @@ async def process_vacancy_action(
         if new_index < 0:
             await callback.answer("⏪ Это самая первая вакансия!", show_alert=True)
             return
-        
+
         # Пересчитываем скоринг для предыдущей вакансии на лету (если фильтры сменились)
         prev_vac = vacancies[new_index]
-        score = await HHAPI.personalize_score_safe(prev_vac, user.skills or [], user.disliked or [], user.liked or [], user_filters=user_filters)
+        score = await HHAPI.personalize_score_safe(
+            prev_vac,
+            user.skills or [],
+            user.disliked or [],
+            user.liked or [],
+            user_filters=user_filters,
+        )
         prev_vac["calculated_score"] = score
 
         await state.update_data(current_index=new_index)
-        await render_vacancy_card(callback.message, state, session, http_session, new_index, vacancies)
+        await render_vacancy_card(
+            callback.message, state, session, http_session, new_index, vacancies
+        )
         return
 
     # 3. ОБРАБОТКА ЛАЙКОВ / СКИПОВ (Если это были они)
     if callback.data.startswith("like_"):
-
         await callback.answer("Добавлено в Избранное! ❤️")
         vac_id = vacancies[current_index].get("id", "")
-        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(
+            vac_id, config.access_token.access_token, http_session
+        )
         raw_skills = full_data.get("key_skills", [])
         key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
-        print("*" *80 +  "\n" + f"{tg_id}" + "*" *80 + "\n" )
-        await add_vacancy_action(session, tg_id, vacancies[current_index], "like", key_skills)
-        
-    elif callback.data.startswith("skip_"):
+        print("*" * 80 + "\n" + f"{tg_id}" + "*" * 80 + "\n")
+        await add_vacancy_action(
+            session, tg_id, vacancies[current_index], "like", key_skills
+        )
 
+    elif callback.data.startswith("skip_"):
         await callback.answer("Вакансия пропущена ❌")
         vac_id = vacancies[current_index].get("id", "")
-        full_data = await HHAPI.full_vacancy_id(vac_id,config.access_token.access_token, http_session)
+        full_data = await HHAPI.full_vacancy_id(
+            vac_id, config.access_token.access_token, http_session
+        )
         raw_skills = full_data.get("key_skills", [])
         key_skills = await HHAPI.get_key_skills(raw_skills)
         print(key_skills)
-        await add_vacancy_action(session, tg_id, vacancies[current_index], "skip", key_skills)
-
+        await add_vacancy_action(
+            session, tg_id, vacancies[current_index], "skip", key_skills
+        )
 
     # 4. ЛИСТАНИЕ ВПЕРЕД (Срабатывает при клике на "Далее", "Лайк" или "Скип")
-    if callback.data == "next_vacancy" or callback.data.startswith("like_") or callback.data.startswith("skip_"):
+    if (
+        callback.data == "next_vacancy"
+        or callback.data.startswith("like_")
+        or callback.data.startswith("skip_")
+    ):
         next_index = current_index + 1
         current_api_page = user_data.get("api_page", 0)
 
@@ -202,19 +256,35 @@ async def process_vacancy_action(
                 current_api_page += 1
                 await callback.answer("Загружаю следующую страницу... 🔄")
 
-                params = await filters_to_params_hh_api(tg_id, session, page=current_api_page)
-                response = await HHAPI.search_vacancies(params, config.access_token.access_token, session, http_session, tg_id)
+                params = await filters_to_params_hh_api(
+                    tg_id, session, page=current_api_page
+                )
+                response = await HHAPI.search_vacancies(
+                    params,
+                    config.access_token.access_token,
+                    session,
+                    http_session,
+                    tg_id,
+                )
                 new_vacancies = response.get("items", [])
 
                 if not new_vacancies:
-                    await callback.message.answer("🎉 Вы просмотрели абсолютно все вакансии по вашему стеку!")
+                    await callback.message.answer(
+                        "🎉 Вы просмотрели абсолютно все вакансии по вашему стеку!"
+                    )
                     await state.clear()
                     return
 
                 # Фильтруем новую страницу по стеку
                 filtered_new = []
                 for vac in new_vacancies:
-                    score = await HHAPI.personalize_score_safe(vac, user.skills or [], user.disliked or [], user.liked or [], user_filters=user_filters)
+                    score = await HHAPI.personalize_score_safe(
+                        vac,
+                        user.skills or [],
+                        user.disliked or [],
+                        user.liked or [],
+                        user_filters=user_filters,
+                    )
                     if score != -999:
                         vac["calculated_score"] = score
                         filtered_new.append(vac)
@@ -225,7 +295,9 @@ async def process_vacancy_action(
                     vacancies = []
                     continue
 
-                filtered_new.sort(key=lambda x: x.get("calculated_score", 0), reverse=True)
+                filtered_new.sort(
+                    key=lambda x: x.get("calculated_score", 0), reverse=True
+                )
                 vacancies = filtered_new
                 next_index = 0
                 await state.update_data(vacancies=vacancies, api_page=current_api_page)
@@ -236,20 +308,26 @@ async def process_vacancy_action(
 
             # Считаем актуальный скоринг ПЕРЕД рендером
             score = await HHAPI.personalize_score_safe(
-                candidate_vac, user.skills or [], user.disliked or [], user.liked or [], user_filters=user_filters
+                candidate_vac,
+                user.skills or [],
+                user.disliked or [],
+                user.liked or [],
+                user_filters=user_filters,
             )
 
             # Если на лету из-за смены фильтра вакансия перестала проходить порог стека, скипаем её автоматом
             if score == -999:
                 next_index += 1
                 continue
-            
+
             candidate_vac["calculated_score"] = score
             break
 
         # Записываем обновленные индексы и рендерим
         await state.update_data(current_index=next_index, vacancies=vacancies)
-        await render_vacancy_card(callback.message, state, session, http_session, next_index, vacancies)
+        await render_vacancy_card(
+            callback.message, state, session, http_session, next_index, vacancies
+        )
     else:
         # Для неизвестных колбэков просто гасим часики
         await callback.answer()

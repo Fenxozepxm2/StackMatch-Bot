@@ -1,5 +1,6 @@
 import traceback
 
+import aiohttp
 import structlog
 from aiogram import Bot
 from aiogram.types import (
@@ -7,12 +8,10 @@ from aiogram.types import (
     InlineKeyboardMarkup,
 )
 
-
-import aiohttp
 from bot.config import load_config
 from bot.db.database import Async_Fabric_Session
 from bot.db.repos.repo_filters import get_user_filters
-from bot.db.repos.repo_user import get_user, get_all_user_ids
+from bot.db.repos.repo_user import get_all_user_ids, get_user
 from bot.db.repos.rpeo_notifications import add_top5_vaca_in_notification
 from bot.services.to_hhApi import HHAPI, filters_to_params_hh_api
 
@@ -31,9 +30,9 @@ async def check_vacancies(bot: Bot, http_session: aiohttp.ClientSession) -> list
     async with Async_Fabric_Session() as bot_session:
         users_ids = await get_all_user_ids(bot_session)
 
+
         for tg_id in users_ids:
             try:
-
                 user = await get_user(bot_session, tg_id)
 
                 filters = await get_user_filters(bot_session, tg_id)
@@ -43,7 +42,13 @@ async def check_vacancies(bot: Bot, http_session: aiohttp.ClientSession) -> list
 
                 params = await filters_to_params_hh_api(tg_id, bot_session)
 
-                raw_data = await HHAPI.search_vacancies(params, config.access_token.access_token, session=bot_session, http_session=http_session, tg_id=tg_id)
+                raw_data = await HHAPI.search_vacancies(
+                    params,
+                    config.access_token.access_token,
+                    session=bot_session,
+                    http_session=http_session,
+                    tg_id=tg_id,
+                )
 
                 vacs = raw_data.get("items", [])
 
@@ -99,8 +104,7 @@ async def check_vacancies(bot: Bot, http_session: aiohttp.ClientSession) -> list
                         await add_top5_vaca_in_notification(bot_session, tg_id, vac)
                     except Exception:
                         await bot_session.rollback()
-                        logger.info("!! ОШИБКА !!" + 
-                                    "не удалось добавить уведомления")
+                        logger.info("!! ОШИБКА !!" + "не удалось добавить уведомления")
 
             except Exception:
                 logger.info("!! ОШИБКА !!", tg_id=tg_id, Command="/test")

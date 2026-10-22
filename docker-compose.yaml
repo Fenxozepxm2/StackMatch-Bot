@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  bot:
+    image: fenxzepam/stackmatch:latest
+    container_name: stack_match-bot
+    restart: unless-stopped
+    # Убрали network_mode: host! Теперь бот в одной сети с БД.
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./settings.toml:/app/settings.toml:ro
+    # Передаем переменные, чтобы бот знал, как подключиться к БД
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - bot_net
+
+  db:
+    image: postgres:16 # Рекомендую 16 или 17 версию, 18 еще официально не вышла в стабильный релиз
+    container_name: stackmatch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Исправлен путь внутри контейнера Постгреса!
+    ports:
+      - "127.0.0.1:5433:5432" # Оставляем, чтобы ты мог подключиться к БД с ПК через DBeaver/pgAdmin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - bot_net
+
+volumes:
+  postgres_data:
+
+networks:
+  bot_net:
+    driver: bridge
