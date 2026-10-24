@@ -269,9 +269,32 @@ async def process_vacancy_action(
                 new_vacancies = response.get("items", [])
 
                 if not new_vacancies:
-                    await callback.message.answer(
-                        "🎉 Вы просмотрели абсолютно все вакансии по вашему стеку!"
+
+                    
+                    # Красивая инлайн-кнопка
+                    inline_keyboard = InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                InlineKeyboardButton(
+                                    text="✅️ Да",
+                                    callback_data="agree_for_more_vac",
+                                ),
+                                InlineKeyboardButton(
+                                    text="❌️ Нет",
+                                    callback_data="disagree_for_more_vac",
+                                ),
+                            ]
+                        ]
                     )
+                    
+
+
+                    await callback.message.answer(
+                        "🎉 Вы просмотрели абсолютно все вакансии по вашему стеку!" + '\n' + "Хотите расширить фильтры для поиска?", reply_markup=inline_keyboard
+                    )
+
+
+
                     await state.clear()
                     return
 
@@ -331,3 +354,26 @@ async def process_vacancy_action(
     else:
         # Для неизвестных колбэков просто гасим часики
         await callback.answer()
+
+
+
+@router.callback_query(lambda c: c.data == "agree_for_more_vac")
+async def more_vacancies(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    await callback.answer(text="будующий функционал")
+
+@router.callback_query(lambda c: c.data == "disagree_for_more_vac")
+async def back_to_main_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+        from bot.services.main_menu import send_main_menu
+
+        await callback.answer("Возврат в меню")
+        await state.clear()
+        await send_main_menu(event=callback, edit=True, session=session)
+
