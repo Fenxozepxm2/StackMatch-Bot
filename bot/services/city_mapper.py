@@ -22,7 +22,7 @@ class CityMapper:
     async def load_cities(cls, http_session: aiohttp.ClientSession):
         """Загружает справочник городов с hh.ru через общую сессию."""
         url = "https://api.hh.ru/areas"
-        async with http_session.get(url, ssl=False) as resp:
+        async with http_session.get(url) as resp:
             data = await resp.json()
             cls._city_map.clear()
             cls._city_id_map.clear()

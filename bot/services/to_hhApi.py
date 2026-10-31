@@ -1,6 +1,6 @@
 import re
 from typing import Any
-
+import structlog
 import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,9 @@ from bot.db.repos.repo_filters import get_user_filters
 from bot.db.repos.repo_vacancies import get_viewed_vacancy_ids
 from bot.domain.search_filters import SearchFilters
 from bot.services.city_mapper import CityMapper
+
+
+logger = structlog.get_logger(__name__)
 
 config = load_config()
 
@@ -69,37 +72,36 @@ class HHAPI:
                     id_vac, config.access_token.access_token, http_session
                 )
                 clean_description = HHAPI.clean_html(full_data.get("description", ""))
+                salary_data = vac.get("salary")
+                salary_str = "не указана"
+                if salary_data:
+                    sal_from = (
+                        f"от {salary_data.get('from')}" if salary_data.get("from") else ""
+                    )
+                    sal_to = f"до {salary_data.get('to')}" if salary_data.get("to") else ""
+                    salary_str = (
+                        f"{sal_from} {sal_to} {salary_data.get('currency', '')}".strip()
+                    )
+
+                it_badge = (
+                    " <mark>[IT-аккредитованная компания]</mark>"
+                    if vac.get("employer", {}).get("accredited_it_employer")
+                    else ""
+                )
+                score_color = "🟢" if score > 0 else ("🔴" if score < 0 else "⚪️")
+
+                raw_skills = full_data.get("key_skills", [])
+                key_skills_list = [item.get("name") for item in raw_skills if item.get("name")]
+
+                if key_skills_list:
+                    skills_text = ", ".join(
+                        [f"<code>{skill}</code>" for skill in key_skills_list]
+                    )
+                else:
+                    skills_text = "<i>не указаны</i>"
 
             except Exception:
                 clean_description = "Не удалось подгрузить полное описание вакансии."
-
-        salary_data = vac.get("salary")
-        salary_str = "не указана"
-        if salary_data:
-            sal_from = (
-                f"от {salary_data.get('from')}" if salary_data.get("from") else ""
-            )
-            sal_to = f"до {salary_data.get('to')}" if salary_data.get("to") else ""
-            salary_str = (
-                f"{sal_from} {sal_to} {salary_data.get('currency', '')}".strip()
-            )
-
-        it_badge = (
-            " <mark>[IT-аккредитованная компания]</mark>"
-            if vac.get("employer", {}).get("accredited_it_employer")
-            else ""
-        )
-        score_color = "🟢" if score > 0 else ("🔴" if score < 0 else "⚪️")
-
-        raw_skills = full_data.get("key_skills", [])
-        key_skills_list = [item.get("name") for item in raw_skills if item.get("name")]
-
-        if key_skills_list:
-            skills_text = ", ".join(
-                [f"<code>{skill}</code>" for skill in key_skills_list]
-            )
-        else:
-            skills_text = "<i>не указаны</i>"
 
         # Собираем современный ИТ-шаблон с поддержкой тегов раскрытия <details>
         html_content = (
@@ -211,7 +213,7 @@ class HHAPI:
         viewed_vac_ids = set(str(vid) for vid in db_ids)
 
         headers = {
-            "User-Agent": "StackMatchBot/1.0 (tarik2046@mail.ru)",
+            "User-Agent": "StackMatchBot/1.0 (example@mail.ru)",
             "Authorization": f"Bearer {access_token}",
         }
 
@@ -228,7 +230,9 @@ class HHAPI:
                 url, params=flat_params, headers=headers
             ) as response:
                 if response.status != 200:
-                    return {"items": []}
+                    logger.error(
+                        status = response.raise_for_status()
+                    )
 
                 data = await response.json()
                 raw_vacan = data.get("items", [])

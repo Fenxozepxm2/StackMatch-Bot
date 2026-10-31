@@ -71,7 +71,7 @@ async def main():
         scheduler.add_job(
             check_vacancies,
             trigger="cron",
-            hour=10,
+            hour=5,
             minute=0,
             kwargs={"bot": bot, "http_session": http_session},
         )

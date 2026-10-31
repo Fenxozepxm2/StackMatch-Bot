@@ -156,7 +156,9 @@ async def finder(
 
     except Exception as e:
         traceback.print_exc()
-        await message.answer(f"❌ Ошибка при поиске: {str(e)[:200]}")
+        await logger.error(
+            error = traceback.print_exc()
+        )
 
 
 @router.callback_query(VacancySearch.browsing)
